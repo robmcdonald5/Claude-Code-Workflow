@@ -1,0 +1,17 @@
+{
+  "name": "claudefigflow",
+  "version": "0.1.0",
+  "description": "Interactive, agentic creator for Claude Code workflows. Authors skills, commands, subagents, and hooks against an external target repo or as -mock staging files in the host workshop repo. Runs parallel research, structural validation, eval loops, and description optimization for trigger reliability.",
+  "author": {
+    "name": "Joshua McDonald",
+    "email": "MCDONALD.XMAN.JOSHUA@gmail.com"
+  },
+  "keywords": [
+    "workflow",
+    "skill-creator",
+    "command-generator",
+    "subagent-scaffold",
+    "hook-builder",
+    "claude-code"
+  ]
+}

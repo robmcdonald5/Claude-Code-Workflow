@@ -1,0 +1,27 @@
+{
+  "name": "claude-code-workflow",
+  "owner": {
+    "name": "Joshua McDonald",
+    "email": "MCDONALD.XMAN.JOSHUA@gmail.com"
+  },
+  "metadata": {
+    "description": "Marketplace hosting Claude Code workflow automation plugins. Primary plugin: claudefigflow.",
+    "version": "0.1.0"
+  },
+  "plugins": [
+    {
+      "name": "claudefigflow",
+      "source": "./plugins/claudefigflow",
+      "description": "Interactive, agentic creator for Claude Code workflows (skills, commands, subagents, hooks). Supports targeted mode (write into an external repo's .claude/) and standalone mode (stage as -mock files in this repo). Models its eval pipeline on anthropics/skills/skill-creator.",
+      "version": "0.1.0",
+      "category": "automation",
+      "tags": [
+        "workflow",
+        "skill-creator",
+        "agent-scaffold",
+        "command-generator",
+        "hook-builder"
+      ]
+    }
+  ]
+}
