@@ -1,0 +1,23 @@
+{
+  "env": {
+    "CLAUDEFIGFLOW_WORKSHOP_ROOT": "${CLAUDE_PROJECT_DIR}"
+  },
+  "permissions": {
+    "allow": [
+      "Bash(python:*)",
+      "Bash(python3:*)",
+      "Bash(pwsh:*)",
+      "Bash(claude plugin:*)",
+      "Read",
+      "Glob",
+      "Grep",
+      "Edit",
+      "Write",
+      "MultiEdit",
+      "TodoWrite"
+    ]
+  },
+  "enabledPlugins": {
+    "claudefigflow@claude-code-workflow": true
+  }
+}

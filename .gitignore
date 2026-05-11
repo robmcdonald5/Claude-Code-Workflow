@@ -1,0 +1,32 @@
+# Per-user permissions (never commit)
+**/.claude/settings.local.json
+
+# Eval / staging dirs (only relevant if a contributor points CLAUDE_PLUGIN_DATA at the repo)
+eval-workspaces/
+staging/
+.claude/skills/*-mock/.eval/
+
+# Plugin distribution artifacts
+dist/
+
+# Pre-optimize backups
+*.pre-optimize.bak
+
+# Python build / cache
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+.mypy_cache/
+
+# Editor / OS junk
+.DS_Store
+Thumbs.db
+*.bak
+*.tmp
+*.swp
+.idea/
+.vscode/
+
+# Node (in case targeted-mode scaffolds touch a JS project)
+node_modules/

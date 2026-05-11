@@ -1,0 +1,29 @@
+# pre-commit framework config for Claude-Code-Workflow.
+#
+# To activate after cloning this repo:
+#   python -m pip install --user pre-commit
+#   python -m pre_commit install
+#
+# Then `git commit` runs the configured hooks automatically. The hooks below
+# only fire when sync-relevant paths change (cheap on every commit).
+#
+# Run on demand:
+#   python -m pre_commit run --all-files
+#
+# Bypass intentionally (rare):
+#   git commit --no-verify
+
+repos:
+  - repo: local
+    hooks:
+      - id: claudefigflow-refs-in-sync
+        name: claudefigflow refs sync check
+        description: |
+          Block commits when .claude/templates/ or .claude/mcp-arguments/
+          have changed without running sync_refs.py to update the plugin
+          copies under plugins/claudefigflow/skills/workflow-creator/references/.
+        entry: python plugins/claudefigflow/scripts/check_refs_in_sync.py
+        language: system
+        pass_filenames: false
+        files: ^(\.claude/(templates|mcp-arguments)/|plugins/claudefigflow/skills/workflow-creator/references/(templates|mcp)/)
+        stages: [pre-commit]
