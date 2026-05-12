@@ -30,3 +30,6 @@ Thumbs.db
 
 # Node (in case targeted-mode scaffolds touch a JS project)
 node_modules/
+
+# Local mocks
+.claude/skills/

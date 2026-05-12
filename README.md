@@ -33,33 +33,3 @@ python -m pre_commit install
 ```
 
 After any change to a master, run `python plugins/claudefigflow/scripts/sync_refs.py` and stage the synced copies in the same commit.
-
-## Layout
-
-```
-Claude-Code-Workflow/
-├── .claude-plugin/marketplace.json       # marketplace manifest
-├── .claude/                              # workshop dev source of truth
-│   ├── templates/                        # canonical artifact templates (6 files)
-│   ├── mcp-arguments/                    # canonical MCP reference docs (5 servers)
-│   ├── skills/                           # -mock staging
-│   ├── commands/                         # -mock staging
-│   ├── agents/                           # -mock staging
-│   ├── hooks/                            # -mock staging
-│   └── settings.json                     # project permissions
-├── plugins/
-│   └── claudefigflow/                    # the plugin (see plugin README)
-├── CLAUDE.md                             # development guide
-└── README.md
-```
-
-## Documentation
-
-- [`CLAUDE.md`](./CLAUDE.md) — workshop conventions, mock convention, sync invariant, plugin-dev workflow.
-- [`plugins/claudefigflow/USAGE.md`](./plugins/claudefigflow/USAGE.md) — command-by-command reference + end-to-end workflow examples.
-- [`plugins/claudefigflow/README.md`](./plugins/claudefigflow/README.md) — plugin architecture, pipeline phases, subagent roster, install.
-- [`plugins/claudefigflow/skills/workflow-creator/references/`](./plugins/claudefigflow/skills/workflow-creator/references/) — artifact formats, path resolution, creation + modification workflows, eval protocol.
-
-## Status
-
-Tier A scope: skill + command + subagent + hook generation. Deferred to v2: full plugin scaffold, MCP server stubs, public marketplace publication.

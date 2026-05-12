@@ -1,22 +1,16 @@
-# CLAUDE.md
+# Repo Purpose
 
-## Repo Purpose
+This repository is focused on Claude Code workflows and automation patterns. It serves as a foundation for developing and testing Claude Code capabilities, agent workflows, creating *.md files for Claude to use, automation scripts, and maintaining the claudefigflow plugin.
 
-This repository is focused on Claude Code workflows and automation patterns. It serves as a foundation for developing and testing Claude Code capabilities, agent workflows, creating *.md files for Claude to use, and automation scripts.
-
-### General Guideline
-
-All prompts here will be related to making custom workflows within .claude\ (agents, custom commands, skills, etc).
-
-### Claude File Templates
+## Claude File Templates
 
 .claude/templates/ is where we store templates for different styles of Claude files that may be re-used to make similar type files in the future.
 
-### Naming for local storage
+## Naming for local storage
 
 When building new files for Claude, stage them in this repo in their coresponding file organization locations with mock names. For example, `custom-command-example.md` should be stored locally in this repo and called `custom-command-example-mock.md`. These mock files will have the `mock` suffix removed from them and stored globally or locally in other repos when they are deemed to be production ready.
 
-### Best References For Building Files
+## Best References For Building Files
 
 - `code.claude.com/docs/en/`
 - `https://platform.claude.com/docs/en/agents-and-tools/tool-use/overview`
@@ -71,28 +65,10 @@ Then commit both the masters and the synced plugin copies in the same commit.
 
 A pre-commit gate enforces this. It is wired through the [`pre-commit`](https://pre-commit.com) framework via `.pre-commit-config.yaml` at the repo root. The hook only fires when sync-relevant paths are staged; on drift it exits non-zero with recovery instructions.
 
-To activate after a fresh clone:
-
-```
-python -m pip install --user pre-commit
-python -m pre_commit install
-```
-
-Bypass intentionally (rare): `git commit --no-verify`.
-
 ### Subagent location rule
 
 All plugin subagents live at `plugins/claudefigflow/agents/` with the `cfgflow-` prefix. Never nest subagent `.md` files inside a skill directory — Claude Code's plugin auto-discovery does not register nested files, so they would not be spawnable via the Task tool.
 
 ### No baked-in repo paths
 
-Generated artifacts and the plugin's SKILL.md must reference `${CLAUDE_PLUGIN_ROOT}` and `${CLAUDE_PLUGIN_DATA}` — never absolute paths like `C:/Users/McDon/...`. Forward slashes only in path strings inside markdown / JSON.
-
-### V1 scope
-
-Tier A: skill + command + subagent + hook generation **and modification**. Two operations:
-
-- **Create** (`/claudefigflow:workflow`) — author a new artifact from scratch. Modes: targeted (write to external repo) or standalone (mock staging here).
-- **Modify** (`/claudefigflow:modify <path>`) — edit an existing artifact. Loads baseline, architect computes a diff, differential evals measure lift (post-mod vs pre-mod), atomic apply with `.pre-modify.bak` rollback. Negative lift rejects the modification.
-
-Out of scope for v1: full plugin scaffold (composite), MCP server stubs, public GitHub publication.
+Generated artifacts and the plugin's SKILL.md must reference `${CLAUDE_PLUGIN_ROOT}` and `${CLAUDE_PLUGIN_DATA}` — never absolute paths like `C:/Users/[username]/...`. Forward slashes only in path strings inside markdown / JSON.
