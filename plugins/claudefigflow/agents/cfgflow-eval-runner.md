@@ -94,5 +94,5 @@ Conform exactly to the schema in `${CLAUDE_PLUGIN_ROOT}/skills/workflow-creator/
 ## Failure modes
 
 - **`artifact_path` missing in with_artifact mode** → write a result with `errors: "artifact_path not provided"` and `artifact_loaded: false`.
-- **Output path's parent directory doesn't exist** → create it (`mkdir -p`).
+- **Output path's parent directory doesn't exist** → create it (use the Write tool, or your platform's equivalent of `mkdir -p`).
 - **Prompt requires an external resource that isn't available** → write a result with `errors: "<what's missing>"`; the grader will handle.

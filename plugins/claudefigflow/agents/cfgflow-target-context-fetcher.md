@@ -13,7 +13,7 @@ description: >
   assistant: 'I'll use cfgflow-target-context-fetcher to detect the target's platform conventions.'</example>
 tools: Read, Glob, Grep
 model: sonnet
-color: cyan
+color: pink
 ---
 
 # Purpose

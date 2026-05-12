@@ -35,7 +35,7 @@ def main() -> int:
         print("│ To fix:                                                            │", file=sys.stderr)
         print("│   python plugins/claudefigflow/scripts/sync_refs.py                │", file=sys.stderr)
         print("│   git add plugins/claudefigflow/                                   │", file=sys.stderr)
-        print("│   git commit --amend --no-edit  (or retry your commit)             │", file=sys.stderr)
+        print("│   git commit  (retry; pre-commit will pass now)                    │", file=sys.stderr)
         print("└────────────────────────────────────────────────────────────────────┘", file=sys.stderr)
         if result.stdout:
             print(result.stdout, file=sys.stderr)

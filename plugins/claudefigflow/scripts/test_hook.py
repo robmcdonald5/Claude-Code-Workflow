@@ -26,6 +26,7 @@ import re
 import shlex
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 from typing import Any
 
@@ -90,7 +91,7 @@ def generate_fixtures(event: str, matcher: str | None) -> list[dict[str, Any]]:
 
     base = {
         "session_id": "test-session-001",
-        "transcript_path": "/tmp/transcript.txt",
+        "transcript_path": str(Path(tempfile.gettempdir()) / "transcript.txt"),
     }
 
     if event in ("PreToolUse", "PostToolUse"):
