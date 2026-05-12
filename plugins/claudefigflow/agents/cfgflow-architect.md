@@ -42,7 +42,7 @@ Operating mode depends on `operation_type` in the intent JSON.
 
 1. **Select base template.** From `${CLAUDE_PLUGIN_ROOT}/skills/workflow-creator/references/templates/`, pick the most appropriate starting point. Common choices:
    - Skill → start from `basic-single-action-command.md` adapted, or write greenfield if behavior is novel.
-   - Command → start from `basic-single-action-command.md`, `mcp-enabled-github-command`, or `mcp-enabled-browser-automation-command.md`.
+   - Command → start from `basic-single-action-command.md`, `mcp-enabled-github-command.md`, or `mcp-enabled-browser-automation-command.md`.
    - Subagent → start from `developer-agent-template.md` (for writers/builders), `researcher-agent-template.md` (for analyzers), or `mcp-specialized-agent-template.md` (for service integrations).
    - Hook → no template; write from event-schema in `references/artifact-formats.md`.
 
