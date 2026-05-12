@@ -1,7 +1,7 @@
 {
   "name": "claudefigflow",
-  "version": "0.1.0",
-  "description": "Interactive, agentic creator for Claude Code workflows. Authors skills, commands, subagents, and hooks against an external target repo or as -mock staging files in the host workshop repo.",
+  "version": "0.2.0",
+  "description": "Interactive, agentic creator and auditor for Claude Code workflows. Authors skills, commands, subagents, and hooks against an external target repo or as -mock staging files, and audits target repos to surface workflow opportunities worth building.",
   "author": {
     "name": "Joshua McDonald",
     "email": "MCDONALD.XMAN.JOSHUA@gmail.com"
@@ -14,6 +14,9 @@
     "command-generator",
     "subagent-scaffold",
     "hook-builder",
+    "workflow-audit",
+    "opportunity-mining",
+    "repo-discovery",
     "claude-code"
   ]
 }

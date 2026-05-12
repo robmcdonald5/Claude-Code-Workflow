@@ -1,8 +1,8 @@
 # claudefigflow
 
-Interactive, agentic creator for Claude Code workflows. Authors **skills**, **commands**, **subagents**, and **hooks** either against an external target repo or as `-mock` staging files in a workshop repo.
+Interactive, agentic **creator and auditor** for Claude Code workflows. Authors **skills**, **commands**, **subagents**, and **hooks** either against an external target repo or as `-mock` staging files in a workshop repo, and audits target repos to surface workflow opportunities worth building.
 
-Models its eval pipeline on `anthropics/skills/skill-creator`: interactive intent capture, parallel research subagents, structural validation, paired with-artifact / baseline eval runs, grader subagent, and a description-optimization loop for trigger reliability.
+Models its eval pipeline on `anthropics/skills/skill-creator`: interactive intent capture, parallel research subagents, structural validation, paired with-artifact / baseline eval runs, grader subagent, and a description-optimization loop for trigger reliability. Its audit pipeline mirrors `skills/skill-creator/agents/analyzer.md`'s tiered-priority pattern: read-only repo scan, signal extraction, classification against the canonical `code.claude.com/docs/en/features-overview` decision criteria, evidence-cited Markdown report.
 
 ## What it creates
 
@@ -15,10 +15,11 @@ Models its eval pipeline on `anthropics/skills/skill-creator`: interactive inten
 
 ## Operations & modes
 
-Two operations:
+Three operations:
 
-- **Create** — author a new artifact from scratch (template + intent + research).
+- **Create** — author a new artifact from scratch (template + intent + research + write + eval).
 - **Modify** — edit an existing artifact (load + diff + differential evals).
+- **Audit** — scan a target repo to recommend artifacts worth building. **Read-only.** Produces a tiered Markdown opportunity report with file:line evidence and suggested build commands; never writes to the target.
 
 Two modes (create only):
 
@@ -26,6 +27,10 @@ Two modes (create only):
 - **Standalone** — stage in the workshop repo's `.claude/<type-dir>/` with `-mock` suffix; promote manually when ready.
 
 In modify mode, the destination IS the loaded artifact's location — no targeted/standalone selection needed. The `-mock` suffix discipline carries through: edits to `<name>-mock` files write back to the same `-mock` path.
+
+In audit mode, there is no "destination" — the report lives at `${CLAUDE_PLUGIN_DATA}/audit-reports/<repo>-<UTC-ts>/audit.md`. The target repo is never modified.
+
+A common end-to-end flow is **audit → create**: discover what to build with `/claudefigflow:flowaudit`, then build the chosen opportunities one at a time with `/claudefigflow:workflow`.
 
 ## Install (local marketplace, current setup)
 
@@ -45,11 +50,12 @@ claude plugin marketplace update
 
 ## Usage
 
-Once installed, invoke either:
+Once installed, invoke one of:
 
-- `/claudefigflow:workflow` — guaranteed entry point for **create** operation; loads the `workflow-creator` skill and begins intent capture.
-- `/claudefigflow:modify <path>` — guaranteed entry point for **modify** operation; loads the existing artifact and runs the diff + differential-evals flow.
-- Natural language — phrases like "I want to create a skill", "build me a hook for X", "update this skill's description", "tune this hook's matcher", "tighten this agent's tool list" auto-trigger the same skill in the appropriate mode.
+- `/claudefigflow:workflow` — guaranteed entry point for the **create** operation; loads the `workflow-creator` skill and begins intent capture.
+- `/claudefigflow:modify <path>` — guaranteed entry point for the **modify** operation; loads the existing artifact and runs the diff + differential-evals flow.
+- `/claudefigflow:flowaudit [<target-path>] [--depth ...] [--focus ...]` — guaranteed entry point for the **audit** operation; loads the `flow-auditor` skill and produces a tiered opportunity report.
+- Natural language — phrases like "I want to create a skill", "build me a hook for X", "update this skill's description", "audit this repo for workflow ideas", "what hooks would help this project" auto-trigger the appropriate skill (workflow-creator or flow-auditor).
 
 Optional commands:
 
@@ -89,36 +95,57 @@ See `skills/workflow-creator/references/modification-workflow.md` for the full m
 
 For **hooks**, phases 7–10 are replaced with synthetic-input fixture generation, hook execution via `test_hook.py`, output-shape and exit-code validation, and matcher tuning (both create and modify modes).
 
+Audit flow (separate skill — `flow-auditor`):
+
+0. **Operation type** — set to "audit" by entry point or trigger phrase.
+1. **Intent capture** (interactive) — target path, optional `focus` filter (artifact types), `depth` (`quick` / `standard` / `deep`), free-form `hints` (soft weighting bias).
+2. **Target acquisition** — resolve and validate the target path (targeted-mode rules); compute report output path.
+3. **Signal collection (parallel)** — `cfgflow-target-context-fetcher` (lightweight context + existing `.claude/` inventory) and `cfgflow-repo-signal-scout` (deep opportunity-signal extraction).
+4. **Synthesis** — `cfgflow-opportunity-synthesizer` clusters signals, applies the canonical decision table, assigns High/Medium/Low tiers, writes the Markdown report and emits a JSON summary.
+5. **Display** — print the full report (or its High-tier section + offer to print Medium/Low) to chat.
+6. **Triage** (optional) — offer the user a queue: "want to build any of these now?". Prints `/claudefigflow:workflow ...` commands but does not auto-invoke.
+7. **Next steps** — report path, totals, re-audit hint.
+
+The audit has no eval phase. Recommendation quality is judged by the user reading the evidence-cited report. See `skills/flow-auditor/references/audit-protocol.md` for the classification decision table and Markdown output template.
+
 ## Architecture
 
 ```
 claudefigflow/
 ├── .claude-plugin/plugin.json
 ├── skills/
-│   └── workflow-creator/
-│       ├── SKILL.md                    # 11-phase orchestrator
-│       ├── references/
-│       │   ├── artifact-formats.md     # frontmatter spec per type
-│       │   ├── path-resolution.md      # destination rules
-│       │   ├── creation-workflow.md    # phase-by-phase reference
-│       │   ├── eval-protocol.md        # eval JSON shapes + rubric
-│       │   ├── templates/              # synced from workshop's .claude/templates/
-│       │   └── mcp/                    # synced from workshop's .claude/mcp-arguments/
-│       └── scripts/                    # (no scripts here; all live at plugin root)
-├── agents/                             # 10 plugin subagents, cfgflow-* prefix
+│   ├── workflow-creator/
+│   │   ├── SKILL.md                    # 11-phase orchestrator (create + modify)
+│   │   ├── references/
+│   │   │   ├── artifact-formats.md     # frontmatter spec per type
+│   │   │   ├── path-resolution.md      # destination rules
+│   │   │   ├── creation-workflow.md    # phase-by-phase reference (create)
+│   │   │   ├── modification-workflow.md# phase-by-phase reference (modify)
+│   │   │   ├── eval-protocol.md        # eval JSON shapes + rubric
+│   │   │   ├── templates/              # synced from workshop's .claude/templates/
+│   │   │   └── mcp/                    # synced from workshop's .claude/mcp-arguments/
+│   │   └── scripts/                    # (no scripts here; all live at plugin root)
+│   └── flow-auditor/
+│       ├── SKILL.md                    # 7-phase audit orchestrator
+│       └── references/
+│           └── audit-protocol.md       # decision table + tier heuristics + output template
+├── agents/                             # 12 plugin subagents, cfgflow-* prefix
 │   ├── cfgflow-intent-interviewer.md
 │   ├── cfgflow-existing-artifact-loader.md   # modify mode only
 │   ├── cfgflow-anthropic-pattern-researcher.md
-│   ├── cfgflow-target-context-fetcher.md
+│   ├── cfgflow-target-context-fetcher.md     # reused by audit Phase 3
 │   ├── cfgflow-existing-workflow-scanner.md
 │   ├── cfgflow-architect.md
 │   ├── cfgflow-structural-validator.md
 │   ├── cfgflow-eval-runner.md
 │   ├── cfgflow-grader.md
-│   └── cfgflow-description-optimizer.md
+│   ├── cfgflow-description-optimizer.md
+│   ├── cfgflow-repo-signal-scout.md          # audit Phase 3
+│   └── cfgflow-opportunity-synthesizer.md    # audit Phase 4
 ├── commands/
 │   ├── workflow.md                     # /claudefigflow:workflow (create)
 │   ├── modify.md                       # /claudefigflow:modify (modify)
+│   ├── flowaudit.md                    # /claudefigflow:flowaudit (audit)
 │   ├── workflow-eval.md                # /claudefigflow:workflow-eval
 │   └── sync-refs.md                    # /claudefigflow:sync-refs
 └── scripts/
@@ -164,3 +191,6 @@ An artifact is "done" when:
 - Public marketplace publication
 - LLM-graded hook evals (substituted with deterministic shape validation)
 - Auto-detection of target platform for hook script language
+- Evals on the audit operation itself (`/claudefigflow:flowaudit` produces recommendations the user judges directly; meta-eval is possible via `/claudefigflow:workflow-eval` on the `flow-auditor` skill but not run automatically)
+- Auto-execution of audit recommendations (audit and create are intentionally separate; the user must invoke `/claudefigflow:workflow` deliberately)
+- Audit coverage of globally-installed artifacts (`~/.claude/`) and other plugin caches (`~/.claude/plugins/cache/`). The audit currently inventories only `<target>/.claude/` via `cfgflow-target-context-fetcher`. A v2 enhancement could engage `cfgflow-existing-workflow-scanner` in an audit-mode variant to detect cross-repo and cross-plugin overlap.

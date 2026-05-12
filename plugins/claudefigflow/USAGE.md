@@ -8,10 +8,16 @@ Complete reference for the plugin's commands, auto-trigger phrases, and end-to-e
 |---|---|---|
 | `/claudefigflow:workflow` | Create a new artifact (skill, command, subagent, or hook) | Interactive |
 | `/claudefigflow:modify <path>` | Edit an existing artifact with diff + differential evals | Interactive |
+| `/claudefigflow:flowaudit [<path>]` | Audit a target repo for workflow opportunities; read-only | Interactive |
 | `/claudefigflow:workflow-eval <path>` | Re-run evals on an existing artifact (read-only) | Interactive |
 | `/claudefigflow:sync-refs [--check]` | Sync workshop masters into plugin references | One-shot |
 
-Plus the autonomous skill `workflow-creator`, which auto-triggers from natural-language phrases (see [Auto-trigger phrases](#auto-trigger-phrases)).
+Plus two autonomous skills:
+
+- `workflow-creator` — handles **create** and **modify**; auto-triggers from natural-language authoring/editing phrases.
+- `flow-auditor` — handles **audit**; auto-triggers from natural-language discovery/opportunity-mining phrases.
+
+See [Auto-trigger phrases](#auto-trigger-phrases) for the trigger surfaces.
 
 ---
 
@@ -167,6 +173,118 @@ The backup is preserved for the session. Rename it to keep longer-term, or commi
 
 ---
 
+## `/claudefigflow:flowaudit` — Audit a target repo for workflow opportunities
+
+### Synopsis
+
+```
+/claudefigflow:flowaudit
+/claudefigflow:flowaudit <target-path>
+/claudefigflow:flowaudit <target-path> --depth quick|standard|deep
+/claudefigflow:flowaudit <target-path> --focus skill,command,subagent,hook,claude_md,mcp
+```
+
+Hands control to the `flow-auditor` skill. Scans the target repo with two parallel subagents (`cfgflow-target-context-fetcher` and `cfgflow-repo-signal-scout`), then synthesizes a tiered Markdown opportunity report via `cfgflow-opportunity-synthesizer`. **Read-only on the target.** Produces recommendations only — does not build anything.
+
+### When to use
+
+You want to discover what Claude Code artifacts a repo could benefit from before knowing exactly what to build. Common cases:
+
+- New codebase you've just adopted — what should the team standardize via Claude Code?
+- Mature repo with growing manual procedures — what should be automated?
+- Pre-onboarding step before running `/claudefigflow:workflow` on specific opportunities.
+- Health-check on a repo that already has some `.claude/` content — what's missing? what's redundant?
+
+If you already know exactly which artifact you want to build, skip the audit and use `/claudefigflow:workflow` directly.
+
+### Arguments
+
+- **`<target-path>`** (optional) — bare name resolves under `~/Repos/<name>`; relative path resolves against the current working directory; absolute path used as-is. If omitted, the skill asks interactively.
+- **`--depth quick|standard|deep`** (optional, default `standard`) — controls scan exhaustiveness:
+  - `quick`: ≤2 min, repo root + 2 levels deep, 5 high-signal files read end-to-end.
+  - `standard`: ≤5 min, 4 levels deep, 15 files end-to-end.
+  - `deep`: ≤10 min, 6 levels deep, 40 files end-to-end, broader grep coverage.
+- **`--focus <comma-separated-types>`** (optional, default all) — restrict to listed artifact types. Allowed: `skill`, `command`, `subagent`, `hook`, `claude_md`, `mcp`.
+
+### What it will ask you
+
+In order, the auditor collects (in 3-5 questions, fewer when arguments are supplied):
+
+1. **Target path** — if not in `$ARGUMENTS`.
+2. **Focus** — which artifact types to consider; default `all`. Matches the `--focus` flag.
+3. **Depth** — `quick`, `standard`, or `deep`; default `standard`.
+4. **Hints** (optional) — free-form bias text like "CI-related opportunities", "anything PR-review-flavored", "repetitive frontend work". Soft weighting on which signal categories the scout spends extra time on and the synthesizer's tier-boost rule.
+
+### What it produces
+
+- **Markdown report** at `${CLAUDE_PLUGIN_DATA}/audit-reports/<repo-basename>-<UTC-ts>/audit.md`. Tiered (High / Medium / Low) by impact, with file:line evidence and suggested `/claudefigflow:workflow` build commands.
+- **JSON summary** captured by the orchestrator: tier counts, by-type counts, and a `candidates_for_workflow_queue` list of buildable opportunities.
+- **Inline chat display** of the report (full report for short ones; structured + High-tier for long ones, with offer to print Medium/Low on request).
+- **Optional triage prompt** — asks if you'd like to queue any opportunities for `/claudefigflow:workflow`; prints the build commands verbatim but does not auto-invoke.
+
+### Classification
+
+Each opportunity is classified against the canonical Anthropic decision table (from `code.claude.com/docs/en/features-overview`), enumerated verbatim in `${CLAUDE_PLUGIN_ROOT}/skills/flow-auditor/references/audit-protocol.md`. The shortest version:
+
+| Trigger condition | Artifact type |
+|---|---|
+| Repeated multi-step prompt-pasting; Claude decides HOW | Skill |
+| Explicit shortcut for a known procedure (`/foo`) | Command |
+| Specialized recurring task that floods main context | Subagent |
+| Rule that must hold every time, no exceptions | Hook |
+| Convention Claude keeps getting wrong twice | CLAUDE.md addition |
+| Bridge to an external system not yet integrated | MCP (flag only; out of v1 build scope) |
+
+Disambiguation rules (also in `audit-protocol.md`) handle ambiguous cases — e.g., "must happen every time" always lands as a hook, not a skill.
+
+### Tier rules
+
+- **High** — ≥3 signal occurrences OR aligns with explicit CLAUDE.md value; frequent activity; no existing artifact covers it; buildable in ≤3 hours.
+- **Medium** — 1-2 signals; helpful but not critical; partial overlap with existing automation acceptable.
+- **Low** — single-signal or speculative; included for transparency.
+
+Tier downgrades apply when behavioral overlap with an existing artifact exists, the repo is very young, or the recommendation depends on an external service.
+
+### Output Markdown structure
+
+The report has a fixed top-level structure:
+
+1. Header (target, focus, depth, timestamp, existing-artifact count).
+2. Summary (2-3 sentences + tier × type counts table).
+3. High-value opportunities (one entry per cluster: decision criterion, rationale, evidence, suggested name/trigger/effort, build command).
+4. Medium-value opportunities (same template).
+5. Low-value opportunities (same template).
+6. Already covered (skipped) — opportunities that overlap with existing `.claude/` artifacts.
+7. Patterns observed but not classified.
+8. Files scanned (capped at 30).
+
+Full template in `${CLAUDE_PLUGIN_ROOT}/skills/flow-auditor/references/audit-protocol.md`.
+
+### Decision rule
+
+There is no automatic accept/reject decision. The audit produces recommendations; you decide whether to build. The Phase 6 triage step lets you queue opportunities by ID (e.g., `H1, M3`) — the auditor prints the corresponding `/claudefigflow:workflow ...` commands but never auto-invokes them.
+
+### Read-only guarantees
+
+- No writes to the target repo. Ever.
+- No reading of `.env*` file contents (filenames only — may contain secrets).
+- No external network calls beyond what the target-context-fetcher already does.
+- The report lives in plugin data, not the target's working tree.
+
+### Common pitfalls
+
+- **Audit recommends something already covered** — check the "Already covered (skipped)" section; the target-context-fetcher detected the overlap but the synthesizer still emitted the cluster for transparency. The "skip_existing" marker tells you it's a duplicate, not a new opportunity.
+- **High-value list is empty** — usually means the repo is too young (no CI, sparse docs, no CLAUDE.md). Try `--depth deep` or add a `--focus` hint based on what you know about the team's pain points.
+- **Citations point at the wrong line** — the signal scout aggregates frequency across files; the cited line is one example. Check sibling lines in the same file for context.
+- **Re-audit doesn't surface new opportunities** — the report directory is timestamped, so re-runs produce fresh reports. If the repo hasn't changed, the recommendations will be similar; that's expected, not a bug.
+- **Audit asks to build something out of v1 scope** (full plugin, MCP server) — these are "flag-only" recommendations. They land in the report but don't get buildable commands. You'd implement them by hand.
+
+### Re-auditing
+
+Each invocation creates a new timestamped report; older reports persist. To compare two audits (e.g., before and after building some recommended skills), diff the Markdown reports manually. The plugin does not currently auto-track audit history.
+
+---
+
 ## `/claudefigflow:workflow-eval` — Re-run evals on an existing artifact
 
 ### Synopsis
@@ -261,9 +379,9 @@ then reinstall claudefigflow to refresh the cache. Otherwise the running plugin 
 
 ## Auto-trigger phrases
 
-The `workflow-creator` skill activates on natural language without needing a slash command. The description is engineered with verbatim trigger phrases; loose paraphrases also work via fuzzy matching.
+Both `workflow-creator` and `flow-auditor` skills activate on natural language without needing a slash command. Their descriptions are engineered with verbatim trigger phrases; loose paraphrases also work via fuzzy matching.
 
-### Create-mode triggers
+### Create-mode triggers (workflow-creator)
 
 - "create a skill"
 - "build a new skill"
@@ -277,7 +395,7 @@ The `workflow-creator` skill activates on natural language without needing a sla
 - "create a Claude Code workflow"
 - "generate a SKILL.md"
 
-### Modify-mode triggers
+### Modify-mode triggers (workflow-creator)
 
 - "modify this skill"
 - "update this command"
@@ -288,14 +406,29 @@ The `workflow-creator` skill activates on natural language without needing a sla
 - "tighten this agent's tool list"
 - "change the matcher on this hook"
 
-The skill's intent-interviewer disambiguates if your phrasing is borderline.
+### Audit triggers (flow-auditor)
+
+- "audit this repo for workflow ideas"
+- "what skills would help this codebase"
+- "scan this repo for automation opportunities"
+- "find Claude Code workflow opportunities"
+- "audit my repo"
+- "what hooks would help this project"
+- "what could be automated here"
+- "give me ideas for workflows"
+- "run a workflow audit"
+- "flow audit"
+- "look at this repo and tell me what to build"
+- "discover workflow opportunities"
+
+The intent-interviewer disambiguates if your phrasing is borderline between create, modify, and audit.
 
 ### When auto-trigger is unreliable
 
-If the skill consistently fails to activate on phrases that should trigger it, two fixes:
+If a skill consistently fails to activate on phrases that should trigger it, two fixes:
 
-1. Use the slash command explicitly (`/claudefigflow:workflow` or `/claudefigflow:modify`) — guaranteed entry point.
-2. Re-run description optimization on the `workflow-creator` skill itself (via `/claudefigflow:modify` on `plugins/claudefigflow/skills/workflow-creator/`).
+1. Use the slash command explicitly (`/claudefigflow:workflow`, `/claudefigflow:modify`, or `/claudefigflow:flowaudit`) — guaranteed entry point.
+2. Re-run description optimization on the relevant skill (via `/claudefigflow:modify` on `plugins/claudefigflow/skills/<skill-name>/`).
 
 ---
 
@@ -405,7 +538,62 @@ To promote: drop the `-mock` suffix and move to `~/.claude/skills/` or a target 
 < Recommendation: consider modifying to add security review guidance
 ```
 
-### Scenario 5: Edit workshop masters and ship
+### Scenario 5: Audit a target repo to discover opportunities
+
+```
+> /claudefigflow:flowaudit myapp --depth standard
+< Engaging flow-auditor skill on ~/Repos/myapp.
+< Target validated: exists, is git repo, .claude/ present with 2 skills + 1 hook.
+< [Phase 3: spawning cfgflow-target-context-fetcher + cfgflow-repo-signal-scout in parallel]
+< [Phase 4: cfgflow-opportunity-synthesizer classifies signals against the decision table]
+<
+< # Audit report: myapp
+< **Generated:** 2026-05-12T142301Z
+< **Target:** /Users/McDon/Repos/myapp
+< **Focus:** skill, command, subagent, hook, claude_md, mcp
+< **Depth:** standard
+< **Existing .claude/ artifacts:** 3
+<
+< ## Summary
+< Strong signals around PR-review workflows and pre-commit formatting. The
+< highest-leverage opportunity (H1) is a "review-pr" skill — three CI workflows
+< and the CONTRIBUTING.md all reference a 7-step PR review procedure.
+<
+< | Tier | Skills | Commands | Subagents | Hooks | CLAUDE.md | MCP-flag |
+< |---|---|---|---|---|---|---|
+< | High   | 1 | 0 | 1 | 1 | 0 | 0 |
+< | Medium | 1 | 2 | 0 | 1 | 1 | 0 |
+< | Low    | 0 | 1 | 0 | 0 | 0 | 1 |
+<
+< ## High-value opportunities
+<
+< ### H1. [skill] review-pr
+< **Decision criterion:** "Repeated multi-step prompt-pasting; Claude should decide HOW"
+< **Rationale:** CONTRIBUTING.md documents a 7-step PR review procedure; CI
+< workflow comments reference it; team has paste-the-checklist habit per docs.
+< **Evidence:**
+< - `CONTRIBUTING.md:42` — "## PR review checklist (7 steps)"
+< - `.github/workflows/ci.yml:88` — "# See CONTRIBUTING.md PR review"
+< - `docs/runbooks/release.md:15` — "Run the PR review steps before tagging"
+< **Suggested name:** `review-pr`
+< **Suggested trigger:** "review this PR", "PR review", "check this PR for ..."
+< **Estimated effort:** M
+< **Build command:** /claudefigflow:workflow skill for review-pr
+<
+< ### H2. [hook] pre-commit-format
+< ...
+<
+< Want to queue any of these for /claudefigflow:workflow? (e.g., H1, M2) > H1
+< Queued: /claudefigflow:workflow skill for review-pr
+< (run that in a new prompt when you're ready)
+<
+< ✓ Audit report: ~/.claude/plugins/data/claudefigflow/audit-reports/myapp-2026-05-12T142301Z/audit.md
+< ✓ Target: /Users/McDon/Repos/myapp
+< ✓ Opportunities surfaced: 8 (3 high, 4 medium, 1 low)
+< ✓ Already covered: 0
+```
+
+### Scenario 6: Edit workshop masters and ship
 
 ```
 > # edit .claude/templates/researcher-agent-template.md in your editor
