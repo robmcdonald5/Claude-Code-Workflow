@@ -127,16 +127,23 @@ def replace_description_in_frontmatter(file_path: Path, new_description: str) ->
     lines = fm_raw.split("\n")
     out_lines: list[str] = []
     in_desc_block = False
+    block_style: str | None = None
     indent = "  "
     replaced = False
     for line in lines:
         stripped = line.lstrip()
         if stripped.startswith("description:"):
-            in_desc_block = stripped[len("description:"):].strip() in (">", "|")
+            suffix = stripped[len("description:"):].strip()
+            in_desc_block = suffix in (">", "|")
             if in_desc_block:
-                out_lines.append("description: >")
-                wrapped = " ".join(new_description.split())
-                out_lines.append(f"{indent}{wrapped}")
+                block_style = suffix
+                out_lines.append(f"description: {block_style}")
+                if block_style == ">":
+                    wrapped = " ".join(new_description.split())
+                    out_lines.append(f"{indent}{wrapped}")
+                else:
+                    for nl in new_description.split("\n"):
+                        out_lines.append(f"{indent}{nl}")
                 replaced = True
                 continue
             else:
@@ -147,6 +154,7 @@ def replace_description_in_frontmatter(file_path: Path, new_description: str) ->
             if line.startswith(" ") or line == "":
                 continue
             in_desc_block = False
+            block_style = None
         out_lines.append(line)
 
     if not replaced:

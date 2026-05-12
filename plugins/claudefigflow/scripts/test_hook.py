@@ -154,6 +154,13 @@ def resolve_command(cmd_template: str, plugin_root: str | None = None) -> str:
 
 
 def run_hook(command: str, stdin_payload: dict[str, Any], timeout: int = 30) -> dict[str, Any]:
+    # Trust boundary: `command` originates from the user's own hooks.json after
+    # ${CLAUDE_PLUGIN_ROOT} / ${CLAUDE_PLUGIN_DATA} resolution. Shell metacharacter
+    # injection would require the user to write hostile config to their own
+    # machine, which is not a meaningful attack surface for a workflow tool.
+    # shell=True on Windows because hooks.json command strings commonly rely
+    # on cmd.exe / pwsh features (pipes, .ps1 invocation) that a bare argv
+    # split would mangle. On POSIX we shlex.split for cleaner argv handling.
     stdin_json = json.dumps(stdin_payload)
     try:
         is_windows = platform.system() == "Windows"

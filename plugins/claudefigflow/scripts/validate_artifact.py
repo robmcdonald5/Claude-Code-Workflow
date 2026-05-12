@@ -36,8 +36,22 @@ BACKSLASH_IN_PATH = re.compile(r"[A-Za-z0-9_./-]+\\[A-Za-z0-9_./-]+")
 
 
 def parse_frontmatter(text: str) -> tuple[dict[str, Any], str, list[str]]:
-    """Return (frontmatter_dict, body, errors). Lightweight YAML parse — supports
-    only flat key: value pairs and `>` / `|` block scalars (sufficient for our needs)."""
+    """Return (frontmatter_dict, body, errors).
+
+    Lightweight YAML parser supporting only:
+      - Flat `key: value` scalars
+      - `>` (folded) and `|` (literal) block scalars
+
+    NOT supported (will silently skip or misparse):
+      - List values (`- item`)
+      - Nested objects / mappings
+      - Anchors (`&`) and aliases (`*`)
+      - Multiline scalars without explicit `>` / `|` style indicator
+      - Quoted strings spanning multiple lines
+
+    Sufficient for the current artifact frontmatter surface. If any of the
+    above become necessary, migrate to PyYAML rather than extending here.
+    """
     errors: list[str] = []
     if not text.startswith("---"):
         errors.append("frontmatter not present (file must start with '---')")
