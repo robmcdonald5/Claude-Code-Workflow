@@ -161,9 +161,11 @@ The script creates `<original>.pre-modify.bak` (rollback artifact) then atomical
 Run two checks in parallel:
 
 1. `cfgflow-structural-validator` (LLM-based semantic check): does the body cover required sections? Is the description well-engineered for triggering? Are examples present and useful?
-2. `python ${CLAUDE_PLUGIN_ROOT}/scripts/validate_artifact.py <artifact-path>` (deterministic check): frontmatter required fields present, name conventions (lowercase kebab-case, length), max-length compliance, path-separator hygiene, no absolute paths in body, settings.json merge correctness.
+2. `python ${CLAUDE_PLUGIN_ROOT}/scripts/validate_artifact.py --type <artifact-type> <artifact-path>` (deterministic check): frontmatter required fields present, name conventions (lowercase kebab-case, length), max-length compliance, path-separator hygiene, no absolute paths in body, settings.json merge correctness. The `--type` flag is required.
 
 If either fails, return to Phase 4 with the issues; do not proceed.
+
+**Before applying any validator-recommended edits**, `Read()` each production file once. The Phase 5 `Write()` targeted staging and the promotion to the destination went through Bash (`cp` or `Move-Item`); subagent reads in this phase do not register either, so the main agent has no read-state for the production paths. `Edit`/`Update` will fail with `File must be read first` until you do this. Two extra `Read` calls beats three wasted `Update` failures.
 
 ### Phase 7 — Eval setup (skill / command / subagent only)
 
