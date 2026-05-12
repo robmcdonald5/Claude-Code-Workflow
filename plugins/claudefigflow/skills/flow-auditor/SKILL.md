@@ -162,7 +162,26 @@ If the user says `no`, skip silently.
 
 ### Phase 7 — Next steps
 
-Print exactly:
+Before printing the next-steps block, **write an output marker**. `write_marker.py` writes the marker JSON then renders the sibling `index.html` inline — the HTML report lands at `${CLAUDE_PLUGIN_DATA}/outputs/<UTC-ts>-audit-<name>/index.html` and renders the Markdown report's opportunities as styled cards, with copy-pastable `/claudefigflow:workflow ...` build commands for each buildable opportunity.
+
+The synthesizer already wrote both `audit.md` and `summary.json` into `<report-dir>` during Phase 4 — no extra persistence step is needed. Invoke:
+
+```
+python ${CLAUDE_PLUGIN_ROOT}/scripts/write_marker.py \
+  --plugin-data-dir ${CLAUDE_PLUGIN_DATA} \
+  --operation audit \
+  --artifact-name <repo-basename> \
+  --artifact-path <resolved-target-path> \
+  --audit-report-md <report-dir>/audit.md \
+  --audit-summary-json <report-dir>/summary.json \
+  --rationale-json '<inline-json>'
+```
+
+`--plugin-data-dir ${CLAUDE_PLUGIN_DATA}` is **required** — Bash subprocesses don't reliably inherit `CLAUDE_PLUGIN_DATA`, so the Skill prompt must pass the resolved path explicitly. Omitting it lands marker and HTML in a workshop-local fallback dir, not in the canonical plugin-data location.
+
+The `--rationale-json` payload is an object with `target` (resolved absolute path), `focus` (the user's filter, default `"all"`), and `depth` (`quick|standard|deep`). The HTML renderer parses the Markdown report directly to recover each opportunity's tier, type, rationale, evidence, suggested name/trigger/effort, and build command — no need to duplicate that in the marker.
+
+Then print exactly:
 
 ```
 ✓ Audit report: <report-path>
@@ -175,6 +194,7 @@ Next steps:
 - To build any opportunity: /claudefigflow:workflow <type> for <opportunity-name>
 - To re-audit with different depth: /claudefigflow:flowaudit <path> --depth <quick|standard|deep>
 - Reports persist under ${CLAUDE_PLUGIN_DATA}/audit-reports/. Not auto-pruned.
+- HTML report rendered inline alongside the marker at ${CLAUDE_PLUGIN_DATA}/outputs/<UTC-ts>-audit-<name>/index.html.
 ```
 
 ## Style rules

@@ -137,7 +137,12 @@ Write to `output_path`. If the parent directory doesn't exist, create it.
 
 ### Step 8 — Emit JSON summary
 
-After writing the Markdown report, print a single JSON object on stdout (per the schema in `audit-protocol.md`):
+After writing the Markdown report, emit the JSON summary in **two places**:
+
+1. Write it to `<report-dir>/summary.json` (same directory as `audit.md`). The HTML output hook (`generate_output.py`) reads this to render the tier-count and by-type tables.
+2. Print the same JSON object on stdout. The orchestrator captures stdout to drive Phase 6 triage.
+
+Both sinks carry the identical payload (per the schema in `audit-protocol.md`):
 
 ```json
 {
@@ -156,7 +161,7 @@ After writing the Markdown report, print a single JSON object on stdout (per the
 }
 ```
 
-The orchestrator uses this to drive the optional Phase 6 triage step.
+Writing `summary.json` is non-optional — the orchestrator no longer has to capture stdout and persist it, and the HTML hook expects the file to exist when the audit marker references it.
 
 ## Output format
 

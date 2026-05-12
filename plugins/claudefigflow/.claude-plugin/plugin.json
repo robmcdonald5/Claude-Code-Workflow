@@ -1,6 +1,6 @@
 {
   "name": "claudefigflow",
-  "version": "0.2.0",
+  "version": "0.4.0",
   "description": "Interactive, agentic creator and auditor for Claude Code workflows. Authors skills, commands, subagents, and hooks against an external target repo or as -mock staging files, and audits target repos to surface workflow opportunities worth building.",
   "author": {
     "name": "Joshua McDonald",

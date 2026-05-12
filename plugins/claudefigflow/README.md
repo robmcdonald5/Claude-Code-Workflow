@@ -157,8 +157,29 @@ claudefigflow/
     ├── optimize_description.py         # iteration scoring + finalize
     ├── test_hook.py                    # hook synthetic-input validator
     ├── diff_artifact.py                # modify-mode diff + apply
+    ├── write_marker.py                 # operation drops an output marker on completion
+    ├── generate_output.py              # renders a marker → HTML (called inline by write_marker, also runnable standalone)
     └── package_plugin.py               # distribution archive builder
 ```
+
+### HTML outputs
+
+Every operation, at its final-report phase, invokes `scripts/write_marker.py`. That script writes a `marker.json` and then renders the sibling `index.html` inline (same process). No Stop / SessionEnd hooks are registered — sessions not running a claudefigflow operation pay zero overhead. Output lands at:
+
+```
+${CLAUDE_PLUGIN_DATA}/outputs/<UTC-ts>-<operation>-<name>/index.html
+```
+
+Per operation, the HTML report shows:
+
+| Operation | HTML content |
+|---|---|
+| **create** | What was built, destination path, file-by-file rationale, eval scores + top/weak evals, next steps |
+| **modify** | Change intent, what was added/removed/modified (with `why`), structural diff (frontmatter + section delta), differential eval, rollback command |
+| **audit** | Tier counts, per-tier opportunity cards with evidence and copy-pastable `/claudefigflow:workflow ...` build commands |
+| **workflow-eval** | Aggregate scores per iteration, top/weak evals, conclusions text |
+
+Each output directory contains both `marker.json` (the operation's structured handoff) and `index.html` (the rendered report). Inline rendering means the HTML is present by the time the operation finishes printing its next-steps block. If a render fails (corrupt marker, unwritable path), `write_marker.py` warns to stderr but preserves the marker on disk; run `python ${CLAUDE_PLUGIN_ROOT}/scripts/generate_output.py` manually to re-render any output dirs missing their `index.html`.
 
 ### Subagent location rule
 

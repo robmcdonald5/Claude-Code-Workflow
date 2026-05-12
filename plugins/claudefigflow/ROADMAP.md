@@ -98,4 +98,12 @@ None. The harness can be built against the current synthesizer interface without
 
 ## Shipped
 
-(none yet)
+- **v0.4.0 — Inline HTML output reports.** Every operation invokes `scripts/write_marker.py` at its final-report phase; the script writes a `marker.json` and renders the sibling `index.html` in-process. Output lands at `${CLAUDE_PLUGIN_DATA}/outputs/<UTC-ts>-<op>-<name>/`. Per-operation views:
+  - `create` — what was built, file rationale, eval scores.
+  - `modify` — added/removed/modified rationale with `why`, structural diff, differential eval, rollback command.
+  - `flowaudit` — tier-grouped opportunity cards with copy-pastable `/claudefigflow:workflow ...` build commands.
+  - `workflow-eval` — per-iteration aggregate scores, top/weak evals, conclusions.
+
+  No Stop / SessionEnd hooks — sessions not running a claudefigflow operation pay zero overhead (matches Anthropic's "don't create long-running hooks" guidance). Manual recovery: `python ${CLAUDE_PLUGIN_ROOT}/scripts/generate_output.py` re-renders any output dirs missing their `index.html`.
+
+  Files: `scripts/write_marker.py`, `scripts/generate_output.py`. Earlier v0.3.x iterations registered Stop/SessionEnd hooks; those were removed in v0.4.0 in favor of inline rendering.

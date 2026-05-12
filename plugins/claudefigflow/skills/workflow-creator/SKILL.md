@@ -235,18 +235,42 @@ Only run if the user wants to optimize trigger reliability (ask). Engage `cfgflo
 
 ### Phase 11 — Package / install instructions
 
-Print exactly:
+Before printing the install instructions, **write an output marker**. `write_marker.py` writes the marker JSON then renders the sibling `index.html` inline — the HTML report lands at `${CLAUDE_PLUGIN_DATA}/outputs/<UTC-ts>-create-<name>/index.html`. The marker carries the architect's rationale (what was added, why) which is not otherwise captured on disk.
+
+Invoke:
+
+```
+python ${CLAUDE_PLUGIN_ROOT}/scripts/write_marker.py \
+  --plugin-data-dir ${CLAUDE_PLUGIN_DATA} \
+  --operation create \
+  --artifact-type <skill|command|subagent|hook> \
+  --artifact-name <kebab-name> \
+  --artifact-path <absolute-path-to-primary-file> \
+  --benchmark-json <eval-workspace>/iteration-1/benchmark.json \
+  --eval-workspace <eval-workspace> \
+  --destination-paths <comma-separated-absolute-paths> \
+  --rationale-json '<inline-json>'
+```
+
+`--plugin-data-dir ${CLAUDE_PLUGIN_DATA}` is **required** — Bash subprocesses don't reliably inherit `CLAUDE_PLUGIN_DATA`, so the Skill prompt must pass the resolved path explicitly. Omitting it lands marker and HTML in a workshop-local fallback dir, not in the canonical plugin-data location.
+
+The `--rationale-json` payload is an object with `mode` (`targeted`|`standalone`), `destination` (final destination directory or file), `additions` (list of `{path, what, why}` objects describing each file or major section the architect produced), and `next_steps` (the multi-line text from the install-instructions block). For hooks, omit `--benchmark-json` and `--eval-workspace`. If the create flow rejected the artifact (eval lift ≤ 0), still write the marker so the HTML reflects the failure.
+
+Then print exactly:
 
 ```
 ✓ Artifact written: <final-path>
 ✓ Eval workspace: <eval-workspace-path> (skill/command/agent only)
 ✓ Score: <score>/100, lift over baseline: <lift>% (skill/command/agent only)
+✓ HTML report: <html-path-from-write_marker-stdout>
 
 Next steps:
 - (targeted mode) Restart Claude Code in <target-repo> to load the new artifact.
 - (standalone mode) To promote: drop the `-mock` suffix and move to <production-destination>.
 - (plugin authors) Run `/plugin marketplace update` then reinstall claudefigflow to refresh the cache.
 ```
+
+The `<html-path-from-write_marker-stdout>` is the `html_path` value emitted in the JSON `write_marker.py` just printed. If the JSON did not include `html_path` (inline render failed), print `✓ HTML report: not rendered — run python ${CLAUDE_PLUGIN_ROOT}/scripts/generate_output.py to retry` instead.
 
 ---
 

@@ -610,6 +610,31 @@ To promote: drop the `-mock` suffix and move to `~/.claude/skills/` or a target 
 
 ---
 
+## HTML output reports
+
+Every claudefigflow operation (`workflow`, `modify`, `flowaudit`, `workflow-eval`) writes a marker JSON at its final-report phase. The same script renders the sibling `index.html` inline — no hook fires on every Stop event, so sessions not using claudefigflow pay zero overhead. Output lands at:
+
+```
+${CLAUDE_PLUGIN_DATA}/outputs/<UTC-timestamp>-<operation>-<name>/index.html
+```
+
+Per-operation HTML content:
+
+- **`workflow` (create):** what was built, destination paths, file-by-file rationale, aggregate eval scores, top/weak evals, next steps.
+- **`modify`:** change intent, what was added / removed / modified with the **why** for each, structural diff (frontmatter and section delta), differential eval scores, rollback command.
+- **`flowaudit`:** tier counts, per-tier opportunity cards with evidence and a **copy-pastable `/claudefigflow:workflow ...` build command** for each buildable opportunity.
+- **`workflow-eval`:** aggregate scores per iteration, top/weak evals, conclusions text.
+
+The marker (`marker.json`) and the rendered HTML (`index.html`) sit side-by-side. `write_marker.py` produces both — first the marker, then it calls the renderer in-process. Re-runs are idempotent: a directory with both files is "done"; a directory with only `marker.json` is treated as pending by the manual-recovery path. Outputs are not auto-pruned; delete old `outputs/<ts>-*` directories whenever you like.
+
+To re-render any pending dirs (e.g., after a render that crashed):
+
+```
+python ${CLAUDE_PLUGIN_ROOT}/scripts/generate_output.py
+```
+
+---
+
 ## Troubleshooting
 
 ### "Skill not triggering on natural language"
@@ -645,6 +670,16 @@ cp <file>.pre-modify.bak <file>
 ```
 
 Then reconsider the change. The pre-modification version is preserved for the session.
+
+### "I don't see an HTML report after running an operation"
+
+Check `${CLAUDE_PLUGIN_DATA}/outputs/` — each operation creates a `<UTC-ts>-<op>-<name>/` directory with both `marker.json` and `index.html` inside. If the directory exists but `index.html` is missing, the inline render failed. To force generation:
+
+```
+python ${CLAUDE_PLUGIN_ROOT}/scripts/generate_output.py
+```
+
+Common causes: the operation aborted before its final phase (no marker was written), or the renderer hit a permission error on `outputs/`. If you don't see ANY `<ts>-<op>-<name>/` dir for the run you just finished, check that the skill prompt passed `--plugin-data-dir ${CLAUDE_PLUGIN_DATA}` — without it, marker and HTML land in the workshop-local fallback (`<workshop>/.claudefigflow-data/outputs/`).
 
 ---
 

@@ -120,13 +120,37 @@ Only run if the modification touched the `description` field. Otherwise skip —
 
 ## Phase 11 — Report
 
-Print:
+Before printing the modification report, **write an output marker**. `write_marker.py` writes the marker JSON then renders the sibling `index.html` inline — the HTML report lands at `${CLAUDE_PLUGIN_DATA}/outputs/<UTC-ts>-modify-<name>/index.html`. The marker carries the architect's rationale (what was added, what was removed, what was changed, and **why**) which is not otherwise captured on disk.
+
+Invoke:
+
+```
+python ${CLAUDE_PLUGIN_ROOT}/scripts/write_marker.py \
+  --plugin-data-dir ${CLAUDE_PLUGIN_DATA} \
+  --operation modify \
+  --artifact-type <skill|command|subagent|hook> \
+  --artifact-name <kebab-name> \
+  --artifact-path <absolute-path-to-modified-file> \
+  --benchmark-json <eval-workspace>/iteration-1/benchmark.json \
+  --diff-summary-json <staging-dir>/diff-summary.json \
+  --backup-path <original>.pre-modify.bak \
+  --rationale-json '<inline-json>'
+```
+
+`--plugin-data-dir ${CLAUDE_PLUGIN_DATA}` is **required** — Bash subprocesses don't reliably inherit `CLAUDE_PLUGIN_DATA`, so the Skill prompt must pass the resolved path explicitly. Omitting it lands marker and HTML in a workshop-local fallback dir, not in the canonical plugin-data location.
+
+The `--rationale-json` payload is an object with `change_intent` (verbatim from Phase 1), `scope_hint`, `decision` (`accept`|`accept-with-warning`|`reject` per Phase 9), and three rationale lists — `additions`, `removals`, `modifications` — each a list of `{path, what, why}` objects. `path` may be a file path OR a structural locator like `Section 'Phase 4'` or `frontmatter.description`. The `why` field is non-optional in modify mode: the user explicitly wants to see why each change was made.
+
+To persist the `diff-summary.json`, run `python ${CLAUDE_PLUGIN_ROOT}/scripts/diff_artifact.py summary <original> <staged-candidate> > <staging-dir>/diff-summary.json` before the apply step (Phase 5) so the file exists when the marker is written. Otherwise pass `--diff-summary-json` empty.
+
+Then print:
 
 ```
 ✓ Artifact modified: <final-path>
 ✓ Backup preserved: <original>.pre-modify.bak
 ✓ Differential lift: +<lift>% (treatment <score>, baseline <score>)
 ✓ Decision: <accept|accept-with-warning|reject>
+✓ HTML report: <html-path-from-write_marker-stdout>
 
 Changes:
   - Frontmatter fields: <list>
@@ -135,6 +159,8 @@ Changes:
 
 Rollback: cp <backup-path> <original-path>
 ```
+
+The `<html-path-from-write_marker-stdout>` is the `html_path` value emitted in the JSON `write_marker.py` just printed. If the JSON did not include `html_path` (inline render failed), print `✓ HTML report: not rendered — run python ${CLAUDE_PLUGIN_ROOT}/scripts/generate_output.py to retry` instead.
 
 ## Differences summary (create vs modify)
 

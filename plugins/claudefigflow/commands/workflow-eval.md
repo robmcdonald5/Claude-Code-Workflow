@@ -47,11 +47,32 @@ For hooks, instead run:
 
 ### Step 6 — Report
 
-Print:
+First **write an output marker**. `write_marker.py` writes the marker JSON then renders the sibling `index.html` inline — the HTML report lands at `${CLAUDE_PLUGIN_DATA}/outputs/<UTC-ts>-workflow-eval-<name>/index.html`:
+
+```
+python ${CLAUDE_PLUGIN_ROOT}/scripts/write_marker.py \
+  --plugin-data-dir ${CLAUDE_PLUGIN_DATA} \
+  --operation workflow-eval \
+  --artifact-type <skill|command|subagent|hook> \
+  --artifact-name <name-from-artifact-frontmatter> \
+  --artifact-path <absolute-path-to-artifact> \
+  --benchmark-json <workspace>/iteration-1/benchmark.json \
+  --eval-workspace <workspace> \
+  --rationale-json '<inline-json>'
+```
+
+`--plugin-data-dir ${CLAUDE_PLUGIN_DATA}` is **required** — Bash subprocesses don't reliably inherit `CLAUDE_PLUGIN_DATA`, so the command prompt must pass the resolved path explicitly. Omitting it lands marker and HTML in a workshop-local fallback dir, not in the canonical plugin-data location.
+
+The `--rationale-json` payload is an object with `iterations_run` (count), `iterations` (list of `{iteration, benchmark_path}` objects — one per iteration when `--iterations N > 1`), and `conclusions` (free-form text covering pass/fail status, top strengths, top weaknesses, and the recommended next action).
+
+For hooks, omit `--benchmark-json` and instead pass a `--rationale-json` whose conclusions describe the `test_hook.py` fixture pass/fail tallies. The renderer falls back gracefully when benchmark data is absent.
+
+Then print:
 - Workspace path.
 - Aggregate scores (with-artifact vs baseline vs lift).
 - Pass/fail against the done-definition (≥0.80 aggregate AND positive lift AND no false positives).
 - Top 3 strongest evals (positive lift) and top 3 weakest (low or negative lift).
+- HTML report path (the `html_path` value from the `write_marker.py` stdout JSON). If `html_path` was absent (inline render failed), say "HTML report: not rendered — run python ${CLAUDE_PLUGIN_ROOT}/scripts/generate_output.py to retry".
 - Suggestion: "if pass — done; if fail — recommend re-running architect on the weakest evals' areas".
 
 ### Optional flag — `--iterations N`

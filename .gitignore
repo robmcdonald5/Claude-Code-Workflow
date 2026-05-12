@@ -6,6 +6,11 @@ eval-workspaces/
 staging/
 .claude/skills/*-mock/.eval/
 
+# Local CLAUDE_PLUGIN_DATA fallback (when running scripts outside the Claude Code harness)
+.claudefigflow-data/
+outputs/
+audit-reports/
+
 # Plugin distribution artifacts
 dist/
 
