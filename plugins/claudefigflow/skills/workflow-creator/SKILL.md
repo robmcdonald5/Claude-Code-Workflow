@@ -161,7 +161,7 @@ The script creates `<original>.pre-modify.bak` (rollback artifact) then atomical
 Run two checks in parallel:
 
 1. `cfgflow-structural-validator` (LLM-based semantic check): does the body cover required sections? Is the description well-engineered for triggering? Are examples present and useful?
-2. `python ${CLAUDE_PLUGIN_ROOT}/skills/workflow-creator/scripts/validate_artifact.py <artifact-path>` (deterministic check): frontmatter required fields present, name conventions (lowercase kebab-case, length), max-length compliance, path-separator hygiene, no absolute paths in body, settings.json merge correctness.
+2. `python ${CLAUDE_PLUGIN_ROOT}/scripts/validate_artifact.py <artifact-path>` (deterministic check): frontmatter required fields present, name conventions (lowercase kebab-case, length), max-length compliance, path-separator hygiene, no absolute paths in body, settings.json merge correctness.
 
 If either fails, return to Phase 4 with the issues; do not proceed.
 
@@ -208,7 +208,7 @@ Engage `cfgflow-grader` once with the full eval workspace path. Grader:
 
 Then run:
 ```
-python ${CLAUDE_PLUGIN_ROOT}/skills/workflow-creator/scripts/aggregate_benchmark.py \
+python ${CLAUDE_PLUGIN_ROOT}/scripts/aggregate_benchmark.py \
   ${CLAUDE_PLUGIN_DATA}/eval-workspaces/<artifact-name>-<ts>/iteration-1/
 ```
 
@@ -227,7 +227,7 @@ The aggregate `benchmark.json` adds a `decision` field for modify-mode runs.
 Only run if the user wants to optimize trigger reliability (ask). Engage `cfgflow-description-optimizer`:
 
 1. Generate 20 realistic trigger queries (should activate) and 20 distractors (should NOT activate). Use a 60/40 train/test split.
-2. Run `python ${CLAUDE_PLUGIN_ROOT}/skills/workflow-creator/scripts/optimize_description.py` for up to 5 iterations.
+2. Run `python ${CLAUDE_PLUGIN_ROOT}/scripts/optimize_description.py` for up to 5 iterations.
 3. Per iteration: re-write the `description` field, re-run trigger evals, score precision/recall.
 4. Keep the best-scoring description. Write back to the artifact frontmatter.
 
@@ -258,7 +258,7 @@ Generate one synthetic JSON input fixture per hook-event variation, matching the
 
 ### Phase 8-eq — Execute hook with fixtures
 
-Run `python ${CLAUDE_PLUGIN_ROOT}/skills/workflow-creator/scripts/test_hook.py <hook-config-path> <fixtures-dir>`. The script:
+Run `python ${CLAUDE_PLUGIN_ROOT}/scripts/test_hook.py <hook-config-path> <fixtures-dir>`. The script:
 
 1. Reads the hook configuration.
 2. For each fixture, invokes the hook command (e.g., `pwsh -NoProfile -File <script.ps1>` on Windows) with the fixture piped to stdin.
@@ -276,7 +276,7 @@ The same `test_hook.py` script then validates:
 
 ### Phase 10-eq — Matcher tuning
 
-For hooks with regex matchers, ask: "Run matcher tuning?". If yes, run `python ${CLAUDE_PLUGIN_ROOT}/skills/workflow-creator/scripts/test_hook.py --tune-matcher <hook-config-path>` against a corpus of tool names — measures precision/recall and suggests refinements.
+For hooks with regex matchers, ask: "Run matcher tuning?". If yes, run `python ${CLAUDE_PLUGIN_ROOT}/scripts/test_hook.py --tune-matcher <hook-config-path>` against a corpus of tool names — measures precision/recall and suggests refinements.
 
 **Default new hooks to prompt-based** (use Claude itself as the responder) wherever the use case permits. This avoids the Bash-vs-PowerShell platform problem entirely. Only fall back to script-based when the action is genuinely deterministic (file moves, lint runs, shell-only operations).
 

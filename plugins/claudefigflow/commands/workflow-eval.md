@@ -40,10 +40,10 @@ If no existing workspace, generate fresh evals.json by:
 Execute Phases 8 and 9 from `workflow-creator` SKILL.md:
 - Spawn `cfgflow-eval-runner` in parallel (with_artifact + baseline per eval, all in one turn).
 - Spawn `cfgflow-grader` after runs complete.
-- Run `python ${CLAUDE_PLUGIN_ROOT}/skills/workflow-creator/scripts/aggregate_benchmark.py <iteration-workspace>`.
+- Run `python ${CLAUDE_PLUGIN_ROOT}/scripts/aggregate_benchmark.py <iteration-workspace>`.
 
 For hooks, instead run:
-- `python ${CLAUDE_PLUGIN_ROOT}/skills/workflow-creator/scripts/test_hook.py <hook-path> <fixtures-dir>`.
+- `python ${CLAUDE_PLUGIN_ROOT}/scripts/test_hook.py <hook-path> <fixtures-dir>`.
 
 ### Step 6 — Report
 

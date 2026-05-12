@@ -8,7 +8,7 @@ description: >
   <example>Context: same eval, control run.
   user: 'Execute eval-001 in baseline mode'
   assistant: 'I'll spawn cfgflow-eval-runner with mode=baseline (no artifact context).'</example>
-tools: Read, Write, Bash, Grep, Glob, WebFetch
+tools: Read, Write, Bash, Grep, Glob
 model: sonnet
 color: blue
 ---
