@@ -27,6 +27,7 @@ import argparse
 import json
 import shutil
 import sys
+import textwrap
 from pathlib import Path
 from typing import Any
 
@@ -114,6 +115,23 @@ def find_best_iteration(workspace: Path) -> tuple[int, dict[str, Any]] | None:
     return best_idx, best_metrics
 
 
+def block_scalar_style(val: str) -> str | None:
+    """Return the base YAML block-scalar style ('>' or '|') if `val` is a block
+    header — the indicator optionally followed by a chomping indicator ('-'/'+')
+    and/or an explicit indentation digit, plus an optional trailing comment.
+    Returns None for plain scalars. Recognizes '>', '|', '>-', '|+', '>2',
+    '|  # note', etc.
+    """
+    if not val:
+        return None
+    head = val.split("#", 1)[0].strip()
+    if not head or head[0] not in (">", "|"):
+        return None
+    if all(c in "-+0123456789" for c in head[1:]):
+        return head[0]
+    return None
+
+
 def replace_description_in_frontmatter(file_path: Path, new_description: str) -> str:
     text = file_path.read_text(encoding="utf-8")
     if not text.startswith("---"):
@@ -127,20 +145,22 @@ def replace_description_in_frontmatter(file_path: Path, new_description: str) ->
     lines = fm_raw.split("\n")
     out_lines: list[str] = []
     in_desc_block = False
-    block_style: str | None = None
     indent = "  "
     replaced = False
     for line in lines:
         stripped = line.lstrip()
         if stripped.startswith("description:"):
             suffix = stripped[len("description:"):].strip()
-            in_desc_block = suffix in (">", "|")
+            base_style = block_scalar_style(suffix)
+            in_desc_block = base_style is not None
             if in_desc_block:
-                block_style = suffix
-                out_lines.append(f"description: {block_style}")
-                if block_style == ">":
-                    wrapped = " ".join(new_description.split())
-                    out_lines.append(f"{indent}{wrapped}")
+                # Preserve the original block header verbatim (including any
+                # chomping indicator like '>-'); re-emit the new description.
+                out_lines.append(f"description: {suffix}")
+                if base_style == ">":
+                    folded = " ".join(new_description.split())
+                    for wl in textwrap.wrap(folded, width=76) or [""]:
+                        out_lines.append(f"{indent}{wl}")
                 else:
                     for nl in new_description.split("\n"):
                         out_lines.append(f"{indent}{nl}")
@@ -154,7 +174,6 @@ def replace_description_in_frontmatter(file_path: Path, new_description: str) ->
             if line.startswith(" ") or line == "":
                 continue
             in_desc_block = False
-            block_style = None
         out_lines.append(line)
 
     if not replaced:

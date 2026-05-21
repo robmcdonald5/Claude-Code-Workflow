@@ -38,6 +38,23 @@ def split_frontmatter(text: str) -> tuple[str, str]:
     return parts[1], parts[2]
 
 
+def block_scalar_style(val: str) -> str | None:
+    """Return the base YAML block-scalar style ('>' or '|') if `val` is a block
+    header — the indicator optionally followed by a chomping indicator ('-'/'+')
+    and/or an explicit indentation digit, plus an optional trailing comment.
+    Returns None for plain scalars. Recognizes '>', '|', '>-', '|+', '>2',
+    '|  # note', etc.
+    """
+    if not val:
+        return None
+    head = val.split("#", 1)[0].strip()
+    if not head or head[0] not in (">", "|"):
+        return None
+    if all(c in "-+0123456789" for c in head[1:]):
+        return head[0]
+    return None
+
+
 def parse_yaml_flat(raw: str) -> dict[str, str]:
     fm: dict[str, str] = {}
     current_key: str | None = None
@@ -54,7 +71,7 @@ def parse_yaml_flat(raw: str) -> dict[str, str]:
         if not m:
             continue
         key, val = m.group(1), m.group(2).strip()
-        if val in (">", "|"):
+        if block_scalar_style(val) is not None:
             current_key = key
             block_lines = []
         else:

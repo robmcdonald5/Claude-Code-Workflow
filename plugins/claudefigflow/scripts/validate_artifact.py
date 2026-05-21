@@ -35,6 +35,27 @@ ABS_PATH_PATTERNS = [
 BACKSLASH_IN_PATH = re.compile(r"[A-Za-z0-9_./-]+\\[A-Za-z0-9_./-]+")
 
 
+def block_scalar_style(val: str) -> str | None:
+    """Return the base YAML block-scalar style ('>' or '|') if `val` is a block
+    header, else None.
+
+    A block header is the indicator ('>' folded or '|' literal) optionally
+    followed by a chomping indicator ('-' strip / '+' keep) and/or an explicit
+    indentation digit, plus an optional trailing comment. The base style drives
+    the fold-vs-preserve-newlines decision, so chomping/indent indicators are
+    accepted but collapse to their base. Recognizes: '>', '|', '>-', '>+',
+    '|-', '|+', '>2', '|-2', '|  # note'. Returns None for plain scalars.
+    """
+    if not val:
+        return None
+    head = val.split("#", 1)[0].strip()
+    if not head or head[0] not in (">", "|"):
+        return None
+    if all(c in "-+0123456789" for c in head[1:]):
+        return head[0]
+    return None
+
+
 def parse_frontmatter(text: str) -> tuple[dict[str, Any], str, list[str]]:
     """Return (frontmatter_dict, body, errors).
 
@@ -84,9 +105,10 @@ def parse_frontmatter(text: str) -> tuple[dict[str, Any], str, list[str]]:
         if not m:
             continue
         key, val = m.group(1), m.group(2)
-        if val in (">", "|"):
+        style = block_scalar_style(val)
+        if style is not None:
             current_key = key
-            block_style = val
+            block_style = style
             block_lines = []
         else:
             fm[key] = val.strip()
