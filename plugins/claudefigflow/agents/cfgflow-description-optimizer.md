@@ -120,7 +120,11 @@ After max iterations, take the best train-F1 description and evaluate on the hel
 
 ### Step 4 — Update artifact
 
-If the test F1 is better than baseline AND no regression flag, write the winning description back to the artifact's frontmatter. Otherwise leave the artifact untouched and report that no improvement was found.
+If the test F1 is better than baseline AND no regression flag, write the winning description back via `python optimize_description.py finalize <workspace> <artifact-path>`. Interpret its exit code precisely — do NOT treat every untouched artifact as "no improvement":
+
+- **exit 0** — description updated; report the new description and metrics.
+- **exit 1** — evaluated but kept the current description because no candidate beat baseline F1. This is the genuine "no improvement" outcome.
+- **exit 2** — could NOT finalize due to a problem (missing / empty / over-limit candidate, or a frontmatter rewrite that failed or would be malformed). Read the `reason` field from `optimization-summary.json` and surface it as an error — do NOT report this as "no improvement."
 
 ## Constraints
 

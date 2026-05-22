@@ -16,9 +16,12 @@ Usage:
     python optimize_description.py finalize <workspace> <artifact-path>
 
 Exit codes:
-    0 — success
-    1 — finalize chose NOT to update (no improvement)
-    2 — usage / I/O error
+    0 — success (description updated)
+    1 — no improvement: evaluated but kept the current description (best
+        iteration did not beat baseline F1)
+    2 — could not finalize: usage / I/O error, or an unusable candidate
+        (missing / empty / over-limit) or a frontmatter rewrite that failed
+        or would be malformed. The `reason` field explains.
 """
 
 from __future__ import annotations
@@ -148,9 +151,11 @@ def replace_description_in_frontmatter(file_path: Path, new_description: str) ->
     indent = "  "
     replaced = False
     for line in lines:
-        stripped = line.lstrip()
-        if stripped.startswith("description:"):
-            suffix = stripped[len("description:"):].strip()
+        # Match only a top-level (column-0) description key. A nested
+        # `description:` (e.g. under `metadata:`) is preserved verbatim rather
+        # than lifted to column 0 and re-wrapped.
+        if line.startswith("description:"):
+            suffix = line[len("description:"):].strip()
             base_style = block_scalar_style(suffix)
             in_desc_block = base_style is not None
             if in_desc_block:
@@ -159,7 +164,14 @@ def replace_description_in_frontmatter(file_path: Path, new_description: str) ->
                 out_lines.append(f"description: {suffix}")
                 if base_style == ">":
                     folded = " ".join(new_description.split())
-                    for wl in textwrap.wrap(folded, width=76) or [""]:
+                    # Never split a token across lines: a folded ('>') scalar
+                    # turns a mid-token line break into a space, corrupting it
+                    # (e.g. "documentation-update- reviewer", or a split URL).
+                    # break_on_hyphens guards hyphenated terms; break_long_words
+                    # guards long tokens like URLs.
+                    for wl in textwrap.wrap(
+                        folded, width=76, break_on_hyphens=False, break_long_words=False
+                    ) or [""]:
                         out_lines.append(f"{indent}{wl}")
                 else:
                     for nl in new_description.split("\n"):
@@ -179,22 +191,42 @@ def replace_description_in_frontmatter(file_path: Path, new_description: str) ->
     if not replaced:
         raise ValueError("could not find description field in frontmatter")
 
-    return "---" + "\n".join(out_lines) + "---" + body
+    # Guarantee a newline before the closing fence. When the description block
+    # is the LAST frontmatter field, the in-block skip loop above consumes the
+    # trailing blank line; without this the closing '---' would jam onto the
+    # final description line and corrupt the frontmatter.
+    fm_joined = "\n".join(out_lines)
+    if not fm_joined.endswith("\n"):
+        fm_joined += "\n"
+    return "---" + fm_joined + "---" + body
 
 
 def finalize(workspace: Path, artifact_path: Path) -> int:
     best = find_best_iteration(workspace)
     if best is None:
         print(json.dumps({"finalized": False, "reason": "no iterations found with metrics"}, indent=2))
-        return 1
+        return 2
     best_idx, best_metrics = best
 
     iter_dir = workspace / f"iteration-{best_idx}"
     desc_path = iter_dir / "description-candidate.txt"
     if not desc_path.exists():
         print(json.dumps({"finalized": False, "reason": f"no description-candidate.txt in {iter_dir}"}, indent=2))
-        return 1
+        return 2
     new_description = desc_path.read_text(encoding="utf-8").strip()
+    if not new_description:
+        summary = {"finalized": False, "reason": "winning description-candidate.txt is empty"}
+        (workspace / "optimization-summary.json").write_text(json.dumps(summary, indent=2), encoding="utf-8")
+        print(json.dumps(summary, indent=2))
+        return 2
+    if len(new_description) > 1024:
+        summary = {
+            "finalized": False,
+            "reason": f"winning description is {len(new_description)} chars (>1024 limit)",
+        }
+        (workspace / "optimization-summary.json").write_text(json.dumps(summary, indent=2), encoding="utf-8")
+        print(json.dumps(summary, indent=2))
+        return 2
 
     baseline_dir = workspace / "iteration-1"
     baseline_metrics_path = baseline_dir / "iteration-metrics.json"
@@ -212,10 +244,30 @@ def finalize(workspace: Path, artifact_path: Path) -> int:
             print(json.dumps(summary, indent=2))
             return 1
 
+    try:
+        updated = replace_description_in_frontmatter(artifact_path, new_description)
+    except ValueError as e:
+        # Bad/unsupported artifact (no frontmatter, unterminated, or no
+        # top-level description key). Fail with structured JSON, not a crash.
+        summary = {"finalized": False, "reason": f"could not rewrite frontmatter: {e}"}
+        (workspace / "optimization-summary.json").write_text(json.dumps(summary, indent=2), encoding="utf-8")
+        print(json.dumps(summary, indent=2))
+        return 2
+    # Post-rewrite structural check: never persist malformed frontmatter. A
+    # well-formed result starts with '---' and the frontmatter block (between
+    # the first two fences) ends with a newline before the closing fence.
+    fm_parts = updated.split("---", 2)
+    if not updated.startswith("---") or len(fm_parts) < 3 or not fm_parts[1].endswith("\n"):
+        summary = {
+            "finalized": False,
+            "reason": "rewrite produced malformed frontmatter; artifact left unchanged",
+        }
+        (workspace / "optimization-summary.json").write_text(json.dumps(summary, indent=2), encoding="utf-8")
+        print(json.dumps(summary, indent=2))
+        return 2
+
     backup = artifact_path.with_suffix(artifact_path.suffix + ".pre-optimize.bak")
     shutil.copy2(artifact_path, backup)
-
-    updated = replace_description_in_frontmatter(artifact_path, new_description)
     artifact_path.write_text(updated, encoding="utf-8")
 
     summary = {

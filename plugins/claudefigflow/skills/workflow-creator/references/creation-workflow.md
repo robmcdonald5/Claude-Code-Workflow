@@ -145,7 +145,7 @@ Engage `cfgflow-description-optimizer`. The optimizer runs up to 5 iterations of
 
 `python optimize_description.py finalize <workspace> <artifact-path>` writes the winning description back to the frontmatter and saves `optimization-summary.json`.
 
-If no iteration beats baseline F1, the artifact is untouched.
+`finalize` exit codes: `0` = description updated; `1` = no candidate beat baseline F1, artifact untouched (genuine "no improvement"); `2` = could not finalize (missing / empty / over-limit candidate, or a malformed/failed rewrite) — artifact untouched but this is an error, not "no improvement"; read `reason` in `optimization-summary.json` and surface it.
 
 ## Phase 11 — Package / install instructions
 
